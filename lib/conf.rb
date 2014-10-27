@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-module Config
+module MyConf
   def self.load(path)
     data = {}
     # read conf file

@@ -2,8 +2,8 @@
 LIB_DIR = File.expand_path(File.dirname(__FILE__))
 HOME_DIR = File.expand_path(File.join(LIB_DIR, '..'))
 CONF_DIR = File.join(HOME_DIR, 'conf')
-#ENV['RUBY_PATH'] = "#{ENV['RUBY_PATH']}:#{HOME_DIR}"
-require 'lib/conf'
+puts ENV['RUBY_PATH']
+require "#{LIB_DIR}/conf.rb"
 require 'net/smtp'
 
 class Email
@@ -12,7 +12,7 @@ class Email
 
   def initialize
     begin
-      config = Config::load(File.join(CONF_DIR, 'email.conf'))
+      config = MyConf::load(File.join(CONF_DIR, 'email.conf'))
     rescue IOError => e
       config = {}
     end

@@ -2,8 +2,9 @@
 FILE_DIR = File::expand_path(File::dirname(__FILE__))
 require 'json'
 require 'uri'
-require 'net/https'
 require 'openssl'
+require 'net/http'
+require 'net/http/digest_auth'
 
 module CurlRest
   def self.request(cmd, auth=nil)
@@ -47,12 +48,14 @@ end
 
 module Rest
   def self.get(url, auth=nil)
-    req = Net::HTTP::Get.new(url)
+    uri = URI(url)
+    req = Net::HTTP::Get.new(uri)
     return self.request(req, auth)
   end
 
   def self.post(url, data, auth=nil)
-    req = Net::HTTP::Post.new(url)
+    uri = URI(url)
+    req = Net::HTTP::Post.new(uri)
     req['Content-Type'] = 'application/json'
     req['Accept'] = 'application/json'
     req.body = JSON.dump(data)
@@ -60,7 +63,8 @@ module Rest
   end
 
   def self.put(url, data, auth=nil)
-    req = Net::HTTP::Put.new(url)
+    uri = URI(url)
+    req = Net::HTTP::Put.new(uri)
     req['Content-Type'] = 'application/json'
     req['Accept'] = 'application/json'
     req.body = JSON.dump(data)
@@ -68,13 +72,14 @@ module Rest
   end
 
   def self.delete(url, auth=nil)
-    req = Net::HTTP::Delete.new(url)
+    uri = URI(url)
+    req = Net::HTTP::Delete.new(uri)
     return self.request(req, auth)
   end
 
   def self.request(req, auth=nil)
     # Parse url
-    uri = URI.parse(req.path)
+    uri = req.uri
     if not auth.nil?
         raise ArgumentError.new("auth must be an array containing username and password") if auth.length != 2
         uri.user = auth[0]
@@ -84,7 +89,7 @@ module Rest
     # Handle ssl
     if uri.scheme == 'https'
       http.use_ssl = true
-      http.verify_mode = 0
+      http.verify_mode = OpenSSL::SSL::VERIFY_NONE
     end
     # Get WWW-Authenticate header
     if not auth.nil?
@@ -228,3 +233,7 @@ class Gerrit
     end
   end
 end
+
+gerrit = Gerrit.new('https://code-stage.eng.nay.redhat.com/gerrit')
+gerrit.auth('jizhao', 'SHFlEBLxBldt')
+puts gerrit.get_change('29073')
