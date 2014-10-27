@@ -1,5 +1,4 @@
 #!/usr/bin/env ruby
-FILE_DIR = File::expand_path(File::dirname(__FILE__))
 require 'json'
 require 'uri'
 require 'openssl'
@@ -233,7 +232,3 @@ class Gerrit
     end
   end
 end
-
-gerrit = Gerrit.new('https://code-stage.eng.nay.redhat.com/gerrit')
-gerrit.auth('jizhao', 'SHFlEBLxBldt')
-puts gerrit.get_change('29073')

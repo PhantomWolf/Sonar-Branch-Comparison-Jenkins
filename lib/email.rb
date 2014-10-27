@@ -1,9 +1,5 @@
 #!/usr/bin/env ruby
-LIB_DIR = File.expand_path(File.dirname(__FILE__))
-HOME_DIR = File.expand_path(File.join(LIB_DIR, '..'))
-CONF_DIR = File.join(HOME_DIR, 'conf')
-puts ENV['RUBY_PATH']
-require "#{LIB_DIR}/conf.rb"
+require "conf"
 require 'net/smtp'
 
 class Email
