@@ -9,9 +9,8 @@ $LOAD_PATH.unshift(LIB_DIR)
 require "conf"
 require "gerrit"
 require "email"
+require "sonar"
 
-def data_to_email(data)
-end
 
 if __FILE__ == $0
   # check environment variables
@@ -91,12 +90,27 @@ if __FILE__ == $0
   # get branch comparison result
   base_project = "#{sonar_cmd_args['sonar.projectKey']}:#{ENV['BASE_BRANCH']}"
   target_project = "#{sonar_cmd_args['sonar.projectKey']}:#{$config.branch}"
-  result_link = "#{ENV['SONAR_URL']}/branch_comparison/result/"
+  result_link = "#{ENV['SONAR_URL']}/branch_comparison/result/#{base_project}?target=#{target_project}&format=json"
   res = Rest::get(result_link)
   if res.status_code < 200 or res.status_code >= 300
     raise StandardError.new("HTTP #{res.status_code}: Failed to get branch comparison result")
   end
   data = JSON.load(res.text)
   # send email
+  html = Sonar::comparison_to_html(data)
+  email = Email.new
+  email.subject = "[sonar branch comparison] #{$config.project}: #{ENV['BASE_BRANCH']} <=> #{$config.branch}"
+  email.body = html
+  email.receiver = ENV['GERRIT_EVENT_ACCOUNT_EMAIL']
+  email.sender = 'sonar-noreply@redhat.com'
+  begin
+    email.send
+  rescue => e
+    STDERR.write("Failed to send email to #{ENV['GERRIT_EVENT_ACCOUNT_EMAIL']}: #{e}")
+  end
   # gerrit review
+  review_value = Sonar::analyze_comparison(data)
+  message = "Branch comparison result: #{result_link}"
+  gerrit_client.set_review($config.change_id, $config.revision_id,
+                          {'labels' => {'Code-Review' => review_value}, 'message' => message})
 end
