@@ -88,9 +88,9 @@ if __FILE__ == $0
     end
   end
   # get branch comparison result
-  base_project = "#{sonar_cmd_args['sonar.projectKey']}:#{ENV['BASE_BRANCH']}"
-  target_project = "#{sonar_cmd_args['sonar.projectKey']}:#{$config.branch}"
-  result_link = "#{ENV['SONAR_URL']}/branch_comparison/result/#{base_project}?target=#{target_project}&format=json"
+  base_project_key = "#{sonar_cmd_args['sonar.projectKey']}:#{ENV['BASE_BRANCH']}"
+  target_project_key = "#{sonar_cmd_args['sonar.projectKey']}:#{$config.branch}"
+  result_link = Sonar::gen_comparison_result_url(ENV['SONAR_URL'], base_project_key, target_project_key, 'json')
   res = Rest::get(result_link)
   if res.status_code < 200 or res.status_code >= 300
     raise StandardError.new("HTTP #{res.status_code}: Failed to get branch comparison result")

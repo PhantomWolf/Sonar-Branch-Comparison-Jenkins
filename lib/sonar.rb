@@ -1,6 +1,12 @@
 #!/usr/bin/env ruby
 module Sonar
-  def self.comparison_to_html(data)
+  def self.gen_comparison_result_url(sonar_url, base_project_key, target_project_key, format=nil)
+    url = "#{sonar_url}/branch_comparison/result/#{base_project_key}?target=#{target_project_key}"
+    url << "&format=json" unless format.nil?
+    return url
+  end
+
+  def self.comparison_to_html(base_project, target_project, measure_data)
     css = <<END
 <style type="text/css">
   .metric_name {
