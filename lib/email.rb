@@ -33,15 +33,24 @@ class Email
   end
 
   def send
-    msg = <<MESSAGE_END
-From: #{@sender}
-To: #{@receiver}
+    begin
+      file = File.new(File.join(TMPL_DIR, email.tmpl))
+      tmpl = file.read
+      file.close
+    rescue IOError => e
+      STDERR.write("Unable to read email template(templates/email.tmpl): #{e} ")
+      tmpl = <<MESSAGE_END
+From: %{sender}
+To: %{receiver}
 MIME-Version: 1.0
 Content-type: text/html; charset=UTF-8
-Subject: #{@subject}
+Subject: %{subject}
 
-#{@body}
+%{body}
 MESSAGE_END
+    end
+    msg = tmpl % {:sender => @sender, :receiver => @receiver,
+                  :subject => @subject, :body => @body}
     Net::SMTP.start(@smtp_server) do |smtp|
       smtp.send_message(msg, @sender, @receiver)
     end

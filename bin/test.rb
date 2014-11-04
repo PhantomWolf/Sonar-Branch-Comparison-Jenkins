@@ -5,7 +5,8 @@ BIN_DIR = File.expand_path(File.dirname(__FILE__))
 HOME_DIR = File.expand_path(File.join(BIN_DIR, '..'))
 CONF_DIR = File.join(HOME_DIR, 'conf')
 LIB_DIR = File.join(HOME_DIR, 'lib')
-$LOAD_PATH.unshift(LIB_DIR)
+TMPL_DIR = File.join(HOME_DIR, 'templates')
+LOAD_PATH.unshift(LIB_DIR)
 require "conf"
 require "gerrit"
 require "email"

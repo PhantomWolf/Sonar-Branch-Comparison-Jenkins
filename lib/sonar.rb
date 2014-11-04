@@ -25,6 +25,8 @@ module Sonar
   .worse {
     background-color: #FE2E2E;
   }
+  .neutral {
+  }
   td {
       text-align: center;
       border-bottom: 1px solid;
