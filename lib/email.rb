@@ -1,17 +1,17 @@
 #!/usr/bin/env ruby
-require "conf"
+require "tools"
 require 'net/smtp'
 
 class Email
   attr_reader :sender, :receiver
   attr_accessor :subject, :body
 
-  @@tmpl = MyConf::load_tmpl('email')
-  @@config = MyConf::load(File.join(CONF_DIR, 'email.conf'))
+  @@tmpl = Tools::load_tmpl('email')
+  @@config = Tools::load_conf('email')
 
   def initialize
-    @smtp_server = @@config['SmtpServer'] ? @@config['SmtpServer'] : 'localhost'
-    @sender = @@config['Sender'] ? @@config['Sender'] : "#{ENV['USER']}@#{ENV['HOSTNAME']}"
+    @smtp_server = @@config['smtp_server'] ? @@config['smtp_server'] : 'localhost'
+    @sender = @@config['sender'] ? @@config['sender'] : "#{ENV['USER']}@#{ENV['HOSTNAME']}"
   end
 
   def validate_email(email)
@@ -31,8 +31,8 @@ class Email
   end
 
   def send
-    msg = tmpl % {:sender => @sender, :receiver => @receiver,
-                  :subject => @subject, :body => @body}
+    msg = @@tmpl % {:sender => @sender, :receiver => @receiver,
+                    :subject => @subject, :body => @body}
     Net::SMTP.start(@smtp_server) do |smtp|
       smtp.send_message(msg, @sender, @receiver)
     end

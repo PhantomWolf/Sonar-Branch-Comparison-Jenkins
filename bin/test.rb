@@ -7,7 +7,7 @@ CONF_DIR = File.join(HOME_DIR, 'conf')
 LIB_DIR = File.join(HOME_DIR, 'lib')
 TMPL_DIR = File.join(HOME_DIR, 'templates')
 LOAD_PATH.unshift(LIB_DIR)
-require "conf"
+require "tools"
 require "gerrit"
 require "email"
 require "sonar"
@@ -96,9 +96,9 @@ if __FILE__ == $0
   if res.status_code < 200 or res.status_code >= 300
     raise StandardError.new("HTTP #{res.status_code}: Failed to get branch comparison result")
   end
-  data = JSON.load(res.text)
+  measure_data = JSON.load(res.text)
   # send email
-  html = Sonar::comparison_to_html(data)
+  html = Sonar::comparison_to_email({ENV['BASE_BRANCH'], $config.branch, measure_data, result_link)
   email = Email.new
   email.subject = "[sonar branch comparison] #{$config.project}: #{ENV['BASE_BRANCH']} <=> #{$config.branch}"
   email.body = html
@@ -110,7 +110,7 @@ if __FILE__ == $0
     STDERR.write("Failed to send email to #{ENV['GERRIT_EVENT_ACCOUNT_EMAIL']}: #{e}")
   end
   # gerrit review
-  review_value = Sonar::analyze_comparison(data)
+  review_value = Sonar::analyze_comparison(measure_data)
   message = "Branch comparison result: #{result_link}"
   gerrit_client.set_review($config.change_id, $config.revision_id,
                           {'labels' => {'Code-Review' => review_value}, 'message' => message})
