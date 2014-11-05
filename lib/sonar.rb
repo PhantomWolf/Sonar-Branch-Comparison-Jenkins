@@ -7,50 +7,10 @@ module Sonar
   end
 
   def self.comparison_to_html(base_project, target_project, measure_data)
-    css = <<END
-<style type="text/css">
-  .metric_name {
-    width: 20em;
-    overflow: hidden;
-    border-left: 1px solid;
-    border-right: 1px solid;
-  }
-  .data {
-    width: 10em;
-    border-right: 1px solid;
-  }
-  .better {
-    background-color: #40FF00;
-  }
-  .worse {
-    background-color: #FE2E2E;
-  }
-  .neutral {
-  }
-  td {
-      text-align: center;
-      border-bottom: 1px solid;
-  }
-</style>
-END
-    html_template = <<END
-<html>
-  <head>
-    %{css}
-  </head>
-  <body>
-    <table>
-      <thead>
-        %{thead}
-      </thead>
-      <tbody>
-        %{tbody}
-      </tbody>
-    </table>
-    <a href="%{result_url}">%{link_text}</a>
-  </body>
-</html>
-END
+    item_tmpl = File
+    tbody = ''
+
+
     thead = <<END
 <tr>
   <td>#</td>

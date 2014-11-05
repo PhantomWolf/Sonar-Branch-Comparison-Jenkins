@@ -6,14 +6,12 @@ class Email
   attr_reader :sender, :receiver
   attr_accessor :subject, :body
 
+  @@tmpl = MyConf::load_tmpl('email')
+  @@config = MyConf::load(File.join(CONF_DIR, 'email.conf'))
+
   def initialize
-    begin
-      config = MyConf::load(File.join(CONF_DIR, 'email.conf'))
-    rescue IOError => e
-      config = {}
-    end
-    @smtp_server = config['SmtpServer'] ? config['SmtpServer'] : 'localhost'
-    @sender = config['Sender'] ? config['Sender'] : "#{ENV['USER']}@#{ENV['HOSTNAME']}"
+    @smtp_server = @@config['SmtpServer'] ? @@config['SmtpServer'] : 'localhost'
+    @sender = @@config['Sender'] ? @@config['Sender'] : "#{ENV['USER']}@#{ENV['HOSTNAME']}"
   end
 
   def validate_email(email)
@@ -33,22 +31,6 @@ class Email
   end
 
   def send
-    begin
-      file = File.new(File.join(TMPL_DIR, email.tmpl))
-      tmpl = file.read
-      file.close
-    rescue IOError => e
-      STDERR.write("Unable to read email template(templates/email.tmpl): #{e} ")
-      tmpl = <<MESSAGE_END
-From: %{sender}
-To: %{receiver}
-MIME-Version: 1.0
-Content-type: text/html; charset=UTF-8
-Subject: %{subject}
-
-%{body}
-MESSAGE_END
-    end
     msg = tmpl % {:sender => @sender, :receiver => @receiver,
                   :subject => @subject, :body => @body}
     Net::SMTP.start(@smtp_server) do |smtp|
