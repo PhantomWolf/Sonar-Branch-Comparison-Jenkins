@@ -1,21 +1,89 @@
 #!/usr/bin/env ruby
 require 'tools'
+require 'gerrit'
+
 
 module Sonar
-  def self.gen_comparison_result_url(sonar_url, base_project_key, target_project_key, format=nil)
-    url = "#{sonar_url}/branch_comparison/result/#{base_project_key}?target=#{target_project_key}"
-    url << "&format=json" unless format.nil?
+  METRICS = {
+    'line' => [{:name => 'ncloc', :character => 0, :type => :measure},
+              {:name => 'statements', :character => 0, :type => :measure},
+              {:name => 'files', :character => 0, :type => :measure},
+              {:name => 'classes', :character => 0, :type => :measure},
+              {:name => 'functions', :character => 0, :type => :measure},
+              {:name => 'lines', :character => 0, :type => :measure}],
+    'issue' => [{:name => 'blocker_violations', :character => -1,
+                  :type => :issue, :args => {:severity => 'BLOCKER'}},
+                {:name => 'critical_violations', :character => -1,
+                  :type => :issue, :args => {:severity => 'CRITICAL'}},
+                {:name => 'major_violations', :character => -1,
+                  :type => :issue, :args => {:severity => 'MAJOR'}},
+                {:name => 'minor_violations', :character => -1,
+                  :type => :issue, :args => {:severity => 'MINOR'}},
+                {:name => 'info_violations', :character => -1,
+                  :type => :issue, :args => {:severity => 'INFO'}},
+                {:name => 'violations', :character => -1,
+                  :type => :issue},
+                {:name => 'violations_density', :character => 1,
+                  :type => :issue, :args => {:highlight => 'weighted_violations',
+                                              :metric => 'weighted_violations'}}],
+    'comment' => [{:name => 'comment_lines', :character => 0, :type => :measure},
+                  {:name => 'comment_lines_density', :character => 0, :type => :measure}],
+    'duplication' => [{:name => 'duplicated_lines', :character => -1, :type => :measure},
+                      {:name => 'duplicated_lines_density', :character => -1,
+                        :type => :measure, :args => {:highlight => 'duplicated_lines_density',
+                                                      :metric => 'duplicated_lines'}},
+                      {:name => 'duplicated_blocks', :character => -1, :type => :measure},
+                      {:name => 'duplicated_files', :character => -1, :type => :measure}],
+    'complexity' => [{:name => 'function_complexity', :character => -1, :type => :measure},
+                    {:name => 'class_complexity', :character => -1, :type => :measure},
+                    {:name => 'file_complexity', :character => -1, :type => :measure},
+                    {:name => 'complexity', :character => -1, :type => :measure}],
+  }
+
+class SonarComparison
+  # config - a Hash containing necessary info to start an sonar branch comparison:
+  #           :sonar_url        url of the sonar server
+  #           :project_key      key of the project
+  #           :base_branch      branch of the base project, generally "master"
+  #           :target_branch    branch of the target project
+  def initialize(config)
+    @server_url = config[:sonar_url]
+    @project_key = config[:project_key]
+    @base_branch = config[:base_branch]
+    @target_branch = config[:target_branch]
+  end
+
+  def result_url(format=nil)
+    url = "#{@server_url}/branch_comparison/result/#{@project_key}:#{@base_branch}?target=#{@project_key}:#{@target_branch}"
+    url << "&format=#{format}" unless format.nil?
     return url
   end
 
-  def self.comparison_to_email(base_branch, target_branch, measure_data, url)
+  def get_comparison_result(format=nil)
+    url = self.result_url('json')
+    res = Rest::get(url)
+    if res.status_code < 200 or res.status_code >= 300
+      raise StandardError.new("HTTP #{res.status_code}: failed to get comparison result\n#{res.text}")
+    end
+    # changing format
+    if format == 'json'
+      return res.text
+    elsif format == 'email'
+      data = JSON.load(res.text)
+      return self.comparison_to_email(data)
+    else
+      return JSON.load(res.text)
+    end
+  end
+
+  def comparison_to_email(measure_data)
     email_tmpl = Tools::load_tmpl('email_body')
     item_tmpl = Tools::load_tmpl('_email_tbody_line')
     tbody = ''
-    METRICS.each_pair do |category, array|
+    Sonar::METRICS.each_pair do |category, array|
       array.each do |item|
         metric_name = item[:name]
-        data = @measure_data[metric_name]
+        data = measure_data[metric_name]
         if data['quality'] == 1
           quality = 'better'
         elsif data['quality'] == -1
@@ -37,19 +105,10 @@ module Sonar
         tbody << item
       end
     end
-    email = email_tmpl % {:base_branch => base_branch,
-                          :target_branch => target_branch,
-                          :url => url,
+    email = email_tmpl % {:base_branch => @base_branch,
+                          :target_branch => @target_branch,
+                          :url => self.result_url,
                           :tbody => tbody}
     return email
-  end
-
-  def self.analyze_comparison(measure_data)
-    if measure_data['blocker_violations']['quality'] < 0 or measure_data['critical_violations']['quality'] < 0
-      review = -1
-    else
-      review = 1
-    end
-    return review
   end
 end

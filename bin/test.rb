@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 require 'fileutils'
 require "ostruct"
+require "fileutils"
 BIN_DIR = File.expand_path(File.dirname(__FILE__))
 HOME_DIR = File.expand_path(File.join(BIN_DIR, '..'))
 CONF_DIR = File.join(HOME_DIR, 'conf')
@@ -14,55 +15,42 @@ require "sonar"
 
 
 if __FILE__ == $0
-  # check environment variables
-  required_env_vars = ['SONAR_URL', 'SONAR_USERNAME', 'SONAR_PASSWORD',
-                      'RUNNER_PATH', 'BASE_BRANCH', 'GERRIT_EVENT_ACCOUNT_EMAIL']
-  required_env_vars.each do |item|
-    raise ArgumentError.new("Env var #{item} doesn't exist!") unless ENV[item]
-  end
-  # check sonar command line args
-  sonar_cmd_args = {
-    'sonar.projectKey' => 'SONAR_PROJECT_KEY',
-    'sonar.projectName' => 'SONAR_PROJECT_NAME',
-    'sonar.projectVersion' => 'SONAR_PROJECT_VERSION',
-    'sonar.sources' => 'SONAR_SOURCES',
-    'sonar.language' => 'SONAR_LANGUAGE',
-  }
-  sonar_cmd_args.each_pair do |key, value|
-    if ENV[value]
-      sonar_cmd_args[key] = ENV[value]
-    else
-      raise ArgumentError.new("Env var #{value} doesn't exist!") unless ENV[value]
-    end
-  end
-  # configuration
-  ENV['SONAR_ARGS'] = " " unless ENV['SONAR_ARGS']
   ENV['SONAR_RUNNER_OPTS'] = '-Xms256m -Xmx768m'
-  $config = OpenStruct.new
-  args = {
+  # Sonar command line arguments
+  sonar_cmd_args = {
+    'projectKey' => 'SONAR_PROJECT_KEY',
+    'projectName' => 'SONAR_PROJECT_NAME',
+    'projectVersion' => 'SONAR_PROJECT_VERSION',
+    'sources' => 'SONAR_SOURCES',
+    'language' => 'SONAR_LANGUAGE',
+  }
+  $sonar_config = Tools::hash_to_ostruct(Tools::load_env(sonar_cmd_args))
+  # configuration
+  sonar_args = {
+    'url' => 'SONAR_URL',
     'runner_path' => 'RUNNER_PATH',
     'base_branch' => 'BASE_BRANCH',
-    'sonar_url' => 'SONAR_URL',
-    'sonar_args' => 'SONAR_ARGS',
-    'email' => 'GERRIT_EVENT_ACCOUNT_EMAIL',
-    'sonar_username' => 'SONAR_USERNAME',
-    'sonar_password' => 'SONAR_PASSWORD',
   }
-  args.each_pair do |key, value|
-    if ENV[value]
-      args[key] = ENV[value]
-    end
-  end
+  $sonar_config = Tools::hash_to_ostruct(Tools::load_env(sonar_args))
   # Gerrit
+  gerrit_args = {
+    'url' => 'GERRIT_URL',
+    'username' => 'GERRIT_USERNAME',
+    'password' => 'GERRIT_PASSWORD',
+    'email' => 'GERRIT_EVENT_ACCOUNT_EMAIL',
+  }
+  $gerrit_config = Tools::hash_to_ostruct(Tools::load_env(gerrit_args))
   revision_id = ENV['GERRIT_PATCHSET_REVISION'] ? ENV['GERRIT_PATCHSET_REVISION'] : ENV['GERRIT_NEWREV']
-  gerrit_client = Gerrit.new(ENV['SONAR_URL'])
-  gerrit_client.auth(ENV['SONAR_USERNAME'], ENV['SONAR_PASSWORD'])
+  # Search for changes by revision id
+  gerrit_client = Gerrit.new($gerrit_config.url)
+  gerrit_client.auth($gerrit_config.username, $gerrit_config.password)
   changes = gerrit_client.query_changes_by_revision(revision_id)
-  $config.change_id = changes[0]['change_id']
+  $gerrit_config.change_id = changes[0]['change_id']
   # Get review
   review = gerrit_client.get_review($config.change_id, revision_id)
   $config.revision_id = review['revisions'].keys[0]
-  $config.branch = review['branch']
+  $config.target_branch = review['branch']
+  $config.base_branch = ENV['BASE_BRANCH']
   sonar_cmd_args['sonar.branch'] = review['branch']
   $config.project = review['project']
   $config.git_url = review['revisions'][$config.revision_id]['fetch']['ssh']['url']
@@ -89,18 +77,18 @@ if __FILE__ == $0
     end
   end
   # get branch comparison result
-  base_project_key = "#{sonar_cmd_args['sonar.projectKey']}:#{ENV['BASE_BRANCH']}"
-  target_project_key = "#{sonar_cmd_args['sonar.projectKey']}:#{$config.branch}"
-  result_link = Sonar::gen_comparison_result_url(ENV['SONAR_URL'], base_project_key, target_project_key, 'json')
+  base_project_key = "#{sonar_cmd_args['sonar.projectKey']}:#{$config.base_branch}"
+  target_project_key = "#{sonar_cmd_args['sonar.projectKey']}:#{$config.target_branch}"
+  result_link = Sonar::gen_comparison_url(ENV['SONAR_URL'], base_project_key, target_project_key, 'json')
   res = Rest::get(result_link)
   if res.status_code < 200 or res.status_code >= 300
     raise StandardError.new("HTTP #{res.status_code}: Failed to get branch comparison result")
   end
   measure_data = JSON.load(res.text)
   # send email
-  html = Sonar::comparison_to_email({ENV['BASE_BRANCH'], $config.branch, measure_data, result_link)
+  html = Sonar::comparison_to_email($config.base_branch, $config.target_branch, measure_data, result_link)
   email = Email.new
-  email.subject = "[sonar branch comparison] #{$config.project}: #{ENV['BASE_BRANCH']} <=> #{$config.branch}"
+  email.subject = "[sonar branch comparison] #{$config.project}: #{$config.base_branch} <=> #{$config.target_branch}"
   email.body = html
   email.receiver = ENV['GERRIT_EVENT_ACCOUNT_EMAIL']
   email.sender = 'sonar-noreply@redhat.com'
