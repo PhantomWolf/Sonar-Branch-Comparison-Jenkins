@@ -7,11 +7,10 @@ class Email
   attr_accessor :subject, :body
 
   @@tmpl = Tools::load_tmpl('email')
-  @@config = Tools::load_conf('email')
 
-  def initialize
-    @smtp_server = @@config['smtp_server'] ? @@config['smtp_server'] : 'localhost'
-    @sender = @@config['sender'] ? @@config['sender'] : "#{ENV['USER']}@#{ENV['HOSTNAME']}"
+  def initialize(smtp_server=nil)
+    @smtp_server = smtp_server ? smtp_server : 'localhost'
+    @sender = "sonar-noreply@redhat.com"
   end
 
   def validate_email(email)

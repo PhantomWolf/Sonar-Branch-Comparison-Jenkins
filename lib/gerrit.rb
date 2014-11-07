@@ -206,9 +206,9 @@ class Gerrit
     return Rest::parse(Rest::post(url, data, @auth))
   end
 
-  def fetch_change(change_id, local_repo, method='checkout', link_type='ssh')
+  def fetch_change(change_id, revision_id, local_repo, method='checkout', link_type='ssh')
     # Get repo url and ref
-    data = self.get_review(change_id, 'current')
+    data = self.get_review(change_id, revision_id)
     raise StandardError.new("Failed to get change via rest api: #{change_id}") if data.nil?
     revision_id = data['revisions'].keys[0]
     url = data['revisions'][revision_id]['fetch'][link_type]['url']
