@@ -4,39 +4,12 @@ require 'gerrit'
 
 
 METRICS = {
-  'line' => [{:name => 'ncloc', :character => 0, :type => :measure},
-            {:name => 'statements', :character => 0, :type => :measure},
-            {:name => 'files', :character => 0, :type => :measure},
-            {:name => 'classes', :character => 0, :type => :measure},
-            {:name => 'functions', :character => 0, :type => :measure},
-            {:name => 'lines', :character => 0, :type => :measure}],
-  'issue' => [{:name => 'blocker_violations', :character => -1,
-                :type => :issue, :args => {:severity => 'BLOCKER'}},
-              {:name => 'critical_violations', :character => -1,
-                :type => :issue, :args => {:severity => 'CRITICAL'}},
-              {:name => 'major_violations', :character => -1,
-                :type => :issue, :args => {:severity => 'MAJOR'}},
-              {:name => 'minor_violations', :character => -1,
-                :type => :issue, :args => {:severity => 'MINOR'}},
-              {:name => 'info_violations', :character => -1,
-                :type => :issue, :args => {:severity => 'INFO'}},
-              {:name => 'violations', :character => -1,
-                :type => :issue},
-              {:name => 'violations_density', :character => 1,
-                :type => :issue, :args => {:highlight => 'weighted_violations',
-                                            :metric => 'weighted_violations'}}],
-  'comment' => [{:name => 'comment_lines', :character => 0, :type => :measure},
-                {:name => 'comment_lines_density', :character => 0, :type => :measure}],
-  'duplication' => [{:name => 'duplicated_lines', :character => -1, :type => :measure},
-                    {:name => 'duplicated_lines_density', :character => -1,
-                      :type => :measure, :args => {:highlight => 'duplicated_lines_density',
-                                                    :metric => 'duplicated_lines'}},
-                    {:name => 'duplicated_blocks', :character => -1, :type => :measure},
-                    {:name => 'duplicated_files', :character => -1, :type => :measure}],
-  'complexity' => [{:name => 'function_complexity', :character => -1, :type => :measure},
-                  {:name => 'class_complexity', :character => -1, :type => :measure},
-                  {:name => 'file_complexity', :character => -1, :type => :measure},
-                  {:name => 'complexity', :character => -1, :type => :measure}],
+  'line' => ['ncloc', 'statements', 'files', 'classes', 'functions', 'lines'],
+  'issue' => ['blocker_violations', 'critical_violations', 'major_violations', 'minor_violations',
+              'info_violations', 'violations', 'violations_density'],
+  'comment' => ['comment_lines', 'comment_lines_density'],
+  'duplication' => ['duplicated_lines', 'duplicated_lines_density', 'duplicated_blocks', 'duplicated_files'],
+  'complexity' => ['function_complexity', 'class_complexity', 'file_complexity', 'complexity'],
 }
 
 class SonarComparison
@@ -76,8 +49,7 @@ class SonarComparison
   def to_html
     tbody = ''
     METRICS.each_pair do |category, array|
-      array.each do |item|
-        metric_name = item[:name]
+      array.each do |metric_name|
         data = @result[metric_name]
         if data['quality'] == 1
           quality = 'better'
