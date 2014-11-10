@@ -39,10 +39,10 @@ class SonarComparison
 
   def run
     res = Rest::get(@url)
-    if res.status_code < 200 or res.status_code >= 300
-      raise StandardError.new("HTTP #{res.status_code}: failed to get comparison result\n#{res.text}")
+    if res.code.to_i < 200 or res.code.to_i >= 300
+      raise StandardError.new("HTTP #{res.code}: failed to get comparison result\n#{res.body}")
     end
-    @result = JSON.load(res.text)
+    @result = JSON.load(res.body)
     return @result
   end
 
@@ -73,13 +73,15 @@ class SonarComparison
     end
     email = @@email_tmpl % {:base_branch => @base_branch,
                             :target_branch => @target_branch,
-                            :url => @url,
+                            :url => self.get_url,
                             :tbody => tbody}
     return email
   end
 
   def review_value
-    if @result['blocker_violations']['quality'] < 0 or @result['critical_violations']['quality'] < 0
+    if @result['blocker_violations']['quality'] < 0 or
+          @result['critical_violations']['quality'] < 0 or
+          @result['major_violations']['quality'] < 0
       return -1
     else
       return 1

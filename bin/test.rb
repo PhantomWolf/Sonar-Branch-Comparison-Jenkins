@@ -72,9 +72,11 @@ if __FILE__ == $0
   # start analysis
   cmd = "#{ENV['RUNNER_PATH']} #{ENV['SONAR_ARGS']}"
   sonar_cmd_config.each_pair do |key, value|
-    cmd << " -D#{key.to_s}='#{value}'"
+    cmd << " -Dsonar.#{key.to_s}='#{value}'"
   end
   Dir::chdir(local_repo) do
+    puts "=" * 80
+    puts "cmd: #{cmd}"
     output = `#{cmd}`
     if $?.exitstatus != 0
       raise StandardError.new("Sonar analysis failed:\n#{output}")
@@ -93,14 +95,21 @@ if __FILE__ == $0
   # send email
   html = sonar_comparison.to_html
   email = Email.new
-  email.subject = "[sonar branch comparison] #{$config.project}: #{$config.base_branch} <=> #{$config.target_branch}"
+  email.subject = "[sonar branch comparison] #{gerrit_config.project}: #{sonar_config.base_branch} <=> #{sonar_config.target_branch}"
   email.body = html
   email.receiver = ENV['GERRIT_EVENT_ACCOUNT_EMAIL']
   email.sender = 'sonar-noreply@redhat.com'
   begin
     email.send
   rescue => e
-    STDERR.write("Failed to send email to #{ENV['GERRIT_EVENT_ACCOUNT_EMAIL']}: #{e}")
+    info = <<END
+Failed to send notification email
+    smtp server: #{email_config.smtp_server}
+    from: #{email_config.sender}
+    to: #{ENV['GERRIT_EVENT_ACCOUNT_EMAIL']}
+    error: #{e}
+END
+    STDERR.write(info)
   end
   # gerrit review
   review_value = sonar_comparison.review_value
