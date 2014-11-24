@@ -111,7 +111,7 @@ if __FILE__ == $0
     $logger.info("Target branch is the same as the base one. Skip branch comparing.")
     exit 0
   end
-  sonar_comparison = SonarComparison.new( :sonar_url => sonar_cmd_config[:'host.url']
+  sonar_comparison = SonarComparison.new( :sonar_url => sonar_cmd_config[:'host.url'],
                                           :project_key => sonar_cmd_config.projectKey,
                                           :base_branch => sonar_config.base_branch,
                                           :target_branch => sonar_config.target_branch)
