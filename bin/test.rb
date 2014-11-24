@@ -3,6 +3,7 @@ require "fileutils"
 require "ostruct"
 require "fileutils"
 require "logger"
+require "open3"
 BIN_DIR = File.expand_path(File.dirname(__FILE__))
 HOME_DIR = File.expand_path(File.join(BIN_DIR, '..'))
 LIB_DIR = File.join(HOME_DIR, 'lib')
@@ -83,8 +84,8 @@ if __FILE__ == $0
   FileUtils.rm_rf(local_repo)
   # clone the repo
   $logger.info("Cloning git repo to #{local_repo}")
-  output = `git clone '#{gerrit_config.git_url}' '#{local_repo}'`
-  if $?.exitstatus != 0
+  output, status = Open3::capture2e('git', 'clone', gerrit_config.git_url, local_repo)
+  if status != 0
     $logger.fatal("Failed to clone repo: #{gerrit_config.git_url}")
     $logger.debug(output)
     exit 1
@@ -92,15 +93,21 @@ if __FILE__ == $0
   # fetch patch set
   gerrit_client.fetch_change(gerrit_config.change_id, gerrit_config.revision_id, local_repo)
   # start analysis
-  cmd = "java -jar #{File.join(BIN_DIR, 'sonar-runner.jar')}"
+  opts = ['java', '-jar', File.join(BIN_DIR, 'sonar-runner.jar'), '-e']
+  #cmd = "java -jar '#{File.join(BIN_DIR, 'sonar-runner.jar')}'"
   sonar_cmd_config.each_pair do |key, value|
-    cmd << " -Dsonar.#{key.to_s}='#{value}'"
+    #opts.push("-Dsonar.#{key.to_s}='#{value}'")
+    opts.push("-Dsonar.#{key.to_s}")
+    opts.push(value)
   end
-  cmd << " #{ENV['SONAR_ARGS']}"
+  unless ENV['SONAR_ARGS'].nil?
+    opts.concat(ENV['SONAR_ARGS'].split(' '))
+  end
+  puts "#{opts}"
   Dir::chdir(local_repo) do
-    $logger.info("Running sonar runner: #{cmd}")
-    output = `#{cmd}`
-    if $?.exitstatus != 0
+    $logger.info("Running sonar runner: #{opts.join[' ']}")
+    output, status = Open3::capture2e({'SONAR_RUNNER_OPTS' => ENV['SONAR_RUNNER_OPTS']}, *opts)
+    if status != 0
       $logger.fatal("sonar analysis failed")
       $logger.debug(output)
       exit 2
