@@ -103,9 +103,8 @@ if __FILE__ == $0
   unless ENV['SONAR_ARGS'].nil?
     opts.concat(ENV['SONAR_ARGS'].split(' '))
   end
-  puts "#{opts}"
   Dir::chdir(local_repo) do
-    $logger.info("Running sonar runner: #{opts.join[' ']}")
+    $logger.info("Running sonar runner: #{opts.join(' ')}")
     output, status = Open3::capture2e({'SONAR_RUNNER_OPTS' => ENV['SONAR_RUNNER_OPTS']}, *opts)
     if status != 0
       $logger.fatal("sonar analysis failed")
