@@ -11,7 +11,6 @@ TMPL_DIR = File.join(HOME_DIR, 'templates')
 $LOAD_PATH.unshift(LIB_DIR)
 require "tools"
 require "gerrit"
-require "email"
 require "sonar"
 
 
@@ -46,13 +45,6 @@ if __FILE__ == $0
   }
   $logger.debug("Loading sonar environment variables: #{sonar_args.values}")
   sonar_config = Tools::hash_to_ostruct(Tools::load_env(sonar_args))
-  # Email config
-  email_args = {
-    'smtp_server' => 'SMTP_SERVER',
-    'sender' => 'EMAIL_SENDER',
-  }
-  $logger.debug("Loading email environment variables: #{email_args.values}")
-  email_config = Tools::hash_to_ostruct(Tools::load_env(email_args, true))
   # Gerrit
   gerrit_args = {
     'url' => 'GERRIT_URL',
@@ -123,26 +115,6 @@ if __FILE__ == $0
                                           :target_branch => sonar_config.target_branch)
   $logger.info("Getting branch comparison result")
   sonar_comparison.run
-  # send email
-  html = sonar_comparison.to_html
-  email = Email.new
-  email.subject = "[sonar branch comparison] #{gerrit_config.project}: #{sonar_config.base_branch} <=> #{sonar_config.target_branch}"
-  email.body = html
-  email.receiver = ENV['GERRIT_EVENT_ACCOUNT_EMAIL']
-  email.sender = 'sonar-noreply@redhat.com'
-  begin
-    $logger.info("Sending notification email to #{email.receiver}")
-    email.send
-  rescue => e
-    info = <<END
-Failed to send notification email
-    smtp server: #{email_config.smtp_server}
-    from: #{email_config.sender}
-    to: #{ENV['GERRIT_EVENT_ACCOUNT_EMAIL']}
-    error: #{e}
-END
-    $logger.error(info)
-  end
   # gerrit review
   review_value = sonar_comparison.review_value
   message = "Branch comparison result: #{sonar_comparison.get_url}"
