@@ -47,12 +47,14 @@ end
 
 module Rest
   def self.get(url, auth=nil)
+    $logger.info("GET #{url}")
     uri = URI(url)
     req = Net::HTTP::Get.new(uri)
     return self.request(req, auth)
   end
 
   def self.post(url, data, auth=nil)
+    $logger.info("POST #{url}")
     uri = URI(url)
     req = Net::HTTP::Post.new(uri)
     req['Content-Type'] = 'application/json'
@@ -62,6 +64,7 @@ module Rest
   end
 
   def self.put(url, data, auth=nil)
+    $logger.info("PUT #{url}")
     uri = URI(url)
     req = Net::HTTP::Put.new(uri)
     req['Content-Type'] = 'application/json'
@@ -71,6 +74,7 @@ module Rest
   end
 
   def self.delete(url, auth=nil)
+    $logger.info("DELETE #{url}")
     uri = URI(url)
     req = Net::HTTP::Delete.new(uri)
     return self.request(req, auth)

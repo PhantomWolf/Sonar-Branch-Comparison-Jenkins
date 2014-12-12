@@ -60,65 +60,90 @@ if __FILE__ == $0
   gerrit_client = Gerrit.new(gerrit_config.url)
   gerrit_client.auth(gerrit_config.username, gerrit_config.password)
   $logger.debug("Querying changes by revision id #{revision_id}")
-  changes = gerrit_client.query_changes_by_revision(revision_id).parse_body
+  res = gerrit_client.query_changes_by_revision(revision_id)
+  unless res.code.to_i >= 200 and res.code.to_i < 300
+    $logger.error("HTTP status code: #{res.code}")
+    $logger.error("body: #{res.body}")
+    exit 1
+  end
+  changes = res.parse_body
   gerrit_config.change_id = changes[0]['change_id']
   # Get review
   $logger.debug("Fetching review #{revision_id} of change #{gerrit_config.change_id}")
-  review = gerrit_client.get_review(gerrit_config.change_id, revision_id).parse_body
+  res = gerrit_client.get_review(gerrit_config.change_id, revision_id)
+  unless res.code.to_i >= 200 and res.code.to_i < 300
+    $logger.fatal("Failed to get gerrit review")
+    $logger.fatal("HTTP status code: #{res.code}")
+    $logger.fatal("body: #{res.body}")
+    exit 1
+  end
+  review = res.parse_body
   gerrit_config.revision_id = review['revisions'].keys[0]
   gerrit_config.project = review['project']
   gerrit_config.git_url = review['revisions'][gerrit_config.revision_id]['fetch']['ssh']['url']
   sonar_config.target_branch = review['branch']
   sonar_cmd_config.branch = review['branch']
-  # local repo
-  local_repo = "/tmp/#{gerrit_config.project}-#{Time.now.strftime("%H:%M:%S")}"
-  # remove existing dir
-  FileUtils.rm_rf(local_repo)
-  # clone the repo
-  $logger.info("Cloning git repo to #{local_repo}")
-  output, status = Open3::capture2e('git', 'clone', gerrit_config.git_url, local_repo)
-  if status != 0
-    $logger.fatal("Failed to clone repo: #{gerrit_config.git_url}")
-    $logger.debug(output)
-    exit 1
-  end
-  # fetch patch set
-  gerrit_client.fetch_change(gerrit_config.change_id, gerrit_config.revision_id, local_repo)
-  # start analysis
-  opts = ['java', '-jar', File.join(BIN_DIR, 'sonar-runner.jar'), '-e']
-  #cmd = "java -jar '#{File.join(BIN_DIR, 'sonar-runner.jar')}'"
-  sonar_cmd_config.each_pair do |key, value|
-    #opts.push("-Dsonar.#{key.to_s}='#{value}'")
-    opts.push("-Dsonar.#{key.to_s}")
-    opts.push(value)
-  end
-  unless ENV['SONAR_ARGS'].nil?
-    opts.concat(ENV['SONAR_ARGS'].split(' '))
-  end
-  Dir::chdir(local_repo) do
-    $logger.info("Running sonar runner: #{opts.join(' ')}")
-    output, status = Open3::capture2e({'SONAR_RUNNER_OPTS' => ENV['SONAR_RUNNER_OPTS']}, *opts)
-    if status != 0
-      $logger.fatal("sonar analysis failed")
-      $logger.debug(output)
-      exit 2
-    end
-  end
-  # get branch comparison result
   if sonar_config.base_branch == sonar_config.target_branch
     $logger.info("Target branch is the same as the base one. Skip branch comparing.")
     exit 0
+  else
+    # analyze both base and target branch
+    [sonar_config.base_branch, sonar_config.target_branch].each do |branch|
+      # local repo
+      local_repo = "/tmp/#{gerrit_config.project}-#{Time.now.strftime("%H:%M:%S")}"
+      # remove existing dir
+      FileUtils.rm_rf(local_repo)
+      # clone the repo
+      $logger.info("Cloning git repo to #{local_repo}")
+      output, status = Open3::capture2e('git', 'clone', '-b', sonar_config.base_branch, gerrit_config.git_url, local_repo)
+      if status != 0
+        $logger.fatal("Failed to clone repo: #{gerrit_config.git_url}")
+        $logger.debug(output)
+        exit 1
+      end
+      # fetch patch set
+      if branch == sonar_config.target_branch
+        gerrit_client.fetch_change(gerrit_config.change_id, gerrit_config.revision_id, local_repo)
+      end
+      # start analysis
+      opts = ['java', '-jar', File.join(BIN_DIR, 'sonar-runner.jar'), '-e']
+      sonar_cmd_config.each_pair do |key, value|
+        opts.push("-Dsonar.#{key.to_s}")
+        opts.push(value)
+      end
+      unless ENV['SONAR_ARGS'].nil?
+        opts.concat(ENV['SONAR_ARGS'].split(' '))
+      end
+      Dir::chdir(local_repo) do
+        $logger.info("Running sonar runner: #{opts.join(' ')}")
+        output, status = Open3::capture2e({'SONAR_RUNNER_OPTS' => ENV['SONAR_RUNNER_OPTS']}, *opts)
+        if status != 0
+          $logger.fatal("sonar analysis failed")
+          $logger.fatal(output)
+          exit 2
+        end
+      end
+      # remove local repo
+      FileUtils.rm_rf(local_repo)
+    end
+    # Branch comparison
+    sonar_comparison = SonarComparison.new( :sonar_url => sonar_cmd_config[:'host.url'],
+                                            :project_key => sonar_cmd_config.projectKey,
+                                            :base_branch => sonar_config.base_branch,
+                                            :target_branch => sonar_config.target_branch)
+    $logger.info("Getting branch comparison result")
+    sonar_comparison.run
+    # gerrit review
+    review_value = sonar_comparison.review_value
+    message = "Branch comparison result: #{sonar_comparison.get_url}"
+    $logger.info("Reviewing gerrit patch set")
+    res = gerrit_client.set_review(gerrit_config.change_id, gerrit_config.revision_id,
+                                  {'labels' => {'Code-Review' => review_value}, 'message' => message})
+    unless res.code.to_i >= 200 and res.code.to_i < 300
+      $logger.fatal("Failed to do gerrit review")
+      $logger.fatal("HTTP status code: #{res.code}")
+      $logger.fatal("body: #{res.body}")
+      exit 1
+    end
   end
-  sonar_comparison = SonarComparison.new( :sonar_url => sonar_cmd_config[:'host.url'],
-                                          :project_key => sonar_cmd_config.projectKey,
-                                          :base_branch => sonar_config.base_branch,
-                                          :target_branch => sonar_config.target_branch)
-  $logger.info("Getting branch comparison result")
-  sonar_comparison.run
-  # gerrit review
-  review_value = sonar_comparison.review_value
-  message = "Branch comparison result: #{sonar_comparison.get_url}"
-  $logger.info("Reviewing gerrit patch set")
-  gerrit_client.set_review(gerrit_config.change_id, gerrit_config.revision_id,
-                          {'labels' => {'Code-Review' => review_value}, 'message' => message})
 end
