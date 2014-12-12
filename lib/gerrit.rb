@@ -100,6 +100,10 @@ module Rest
     req.add_field('Authorization', auth)
     req['Accept'] = 'application/json'
     res = http.request(req)
+    # define singleton method
+    res.define_singleton_method(:parse_body) do
+        return Rest::parse(self)
+    end
     return res
   end
 
@@ -129,86 +133,86 @@ class Gerrit
   ################################################################################
   def get_change(change_id)
     url = "#{@base_url}/a/changes/#{change_id}"
-    return Rest::parse(Rest::get(url, @auth))
+    return Rest::get(url, @auth)
   end
 
   def query_changes_by_revision(revision_id)
     url = "#{@base_url}/a/changes/?q=#{revision_id}"
-    return Rest::parse(Rest::get(url, @auth))
+    return Rest::get(url, @auth)
   end
 
   def abandon_change(change_id, data=nil)
     url = "#{@base_url}/a/changes/#{change_id}/abandon"
-    return Rest::parse(Rest::post(url, data, @auth))
+    return Rest::post(url, data, @auth)
   end
 
   def restore_change(change_id, data=nil)
     url = "#{@base_url}/a/changes/#{change_id}/restore"
-    return Rest::parse(Rest::post(url, data, @auth))
+    return Rest::post(url, data, @auth)
   end
 
   def rebase_change(change_id, data=nil)
     url = "#{@base_url}/a/changes/#{change_id}/rebase"
-    return Rest::parse(Rest::post(url, data, @auth))
+    return Rest::post(url, data, @auth)
   end
 
   def revert_change(change_id, data=nil)
     url = "#{@base_url}/a/changes/#{change_id}/revert"
-    return Rest::parse(Rest::post(url, data, @auth))
+    return Rest::post(url, data, @auth)
   end
 
   def submit_change(change_id, data=nil)
     url = "#{@base_url}/a/changes/#{change_id}/submit"
-    return Rest::parse(Rest::post(url, data, @auth))
+    return Rest::post(url, data, @auth)
   end
   ################################################################################
   # Reviewer endpoints
   ################################################################################
   def list_reviewers(change_id)
     url = "#{@base_url}/a/changes/#{change_id}/reviewers"
-    return Rest::parse(Rest::get(url, @auth))
+    return Rest::get(url, @auth)
   end
 
   def get_reviewer(change_id, account_id)
     url = "#{@base_url}/a/changes/#{change_id}/reviewers/#{account_id}"
-    return Rest::parse(Rest::get(url, @auth))
+    return Rest::get(url, @auth)
   end
 
   def add_reviewer(change_id, data=nil)
     url = "#{@base_url}/a/changes/#{change_id}/reviewers"
-    return Rest::parse(Rest::post(url, data, @auth))
+    return Rest::post(url, data, @auth)
   end
 
   def delete_reviewer(change_id, account_id)
     url = "#{@base_url}/a/changes/#{change_id}/reviewers/"
-    return Rest::parse(Rest::delete(url, @auth))
+    return Rest::delete(url, @auth)
   end
   ################################################################################
   # Revision endpoints
   ################################################################################
   def get_commit(change_id, revision_id='current')
     url = "#{@base_url}/a/changes/#{change_id}/revisions/#{revision_id}/commit"
-    return Rest::parse(Rest::get(url, @auth))
+    return Rest::get(url, @auth)
   end
 
   def get_review(change_id, revision_id='current')
     url = "#{@base_url}/a/changes/#{change_id}/revisions/#{revision_id}/review"
-    return Rest::parse(Rest::get(url, @auth))
+    return Rest::get(url, @auth)
   end
 
   def get_related_changes(change_id, revision_id='current')
     url = "#{@base_url}/a/changes/#{change_id}/revisions/#{revision_id}/related"
-    return Rest::parse(Rest::get(url, @auth))
+    return Rest::get(url, @auth)
   end
 
   def set_review(change_id, revision_id='current', data=nil)
     url = "#{@base_url}/a/changes/#{change_id}/revisions/#{revision_id}/review"
-    return Rest::parse(Rest::post(url, data, @auth))
+    return Rest::post(url, data, @auth)
   end
 
   def fetch_change(change_id, revision_id, local_repo, method='checkout', link_type='ssh')
     # Get repo url and ref
-    data = self.get_review(change_id, revision_id)
+    data = self.get_review(change_id, revision_id).parse_body
     raise StandardError.new("Failed to get change via rest api: #{change_id}") if data.nil?
     revision_id = data['revisions'].keys[0]
     url = data['revisions'][revision_id]['fetch'][link_type]['url']

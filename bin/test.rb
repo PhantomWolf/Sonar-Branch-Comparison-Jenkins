@@ -60,11 +60,11 @@ if __FILE__ == $0
   gerrit_client = Gerrit.new(gerrit_config.url)
   gerrit_client.auth(gerrit_config.username, gerrit_config.password)
   $logger.debug("Querying changes by revision id #{revision_id}")
-  changes = gerrit_client.query_changes_by_revision(revision_id)
+  changes = gerrit_client.query_changes_by_revision(revision_id).parse_body
   gerrit_config.change_id = changes[0]['change_id']
   # Get review
   $logger.debug("Fetching review #{revision_id} of change #{gerrit_config.change_id}")
-  review = gerrit_client.get_review(gerrit_config.change_id, revision_id)
+  review = gerrit_client.get_review(gerrit_config.change_id, revision_id).parse_body
   gerrit_config.revision_id = review['revisions'].keys[0]
   gerrit_config.project = review['project']
   gerrit_config.git_url = review['revisions'][gerrit_config.revision_id]['fetch']['ssh']['url']
