@@ -82,7 +82,6 @@ if __FILE__ == $0
   gerrit_config.project = review['project']
   gerrit_config.git_url = review['revisions'][gerrit_config.revision_id]['fetch']['ssh']['url']
   sonar_config.target_branch = review['branch']
-  sonar_cmd_config.branch = review['branch']
   if sonar_config.base_branch == sonar_config.target_branch
     $logger.info("Target branch is the same as the base one. Skip branch comparing.")
     exit 0
@@ -107,6 +106,7 @@ if __FILE__ == $0
       end
       # start analysis
       opts = ['java', '-jar', File.join(BIN_DIR, 'sonar-runner.jar'), '-e']
+      sonar_cmd_config.branch = branch
       sonar_cmd_config.each_pair do |key, value|
         opts.push("-Dsonar.#{key.to_s}")
         opts.push(value)
