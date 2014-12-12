@@ -108,8 +108,7 @@ if __FILE__ == $0
       opts = ['java', '-jar', File.join(BIN_DIR, 'sonar-runner.jar'), '-e']
       sonar_cmd_config.branch = branch
       sonar_cmd_config.each_pair do |key, value|
-        opts.push("-Dsonar.#{key.to_s}")
-        opts.push(value)
+        opts.push("-Dsonar.#{key.to_s}=#{value}")
       end
       unless ENV['SONAR_ARGS'].nil?
         opts.concat(ENV['SONAR_ARGS'].split(' '))
@@ -117,7 +116,7 @@ if __FILE__ == $0
       Dir::chdir(local_repo) do
         $logger.info("Running sonar runner: #{opts.join(' ')}")
         output, status = Open3::capture2e({'SONAR_RUNNER_OPTS' => ENV['SONAR_RUNNER_OPTS']}, *opts)
-        $logger.log(output)
+        $logger.info(output.to_s)
         if status != 0
           $logger.fatal("sonar analysis failed")
           exit 2
