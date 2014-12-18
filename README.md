@@ -1,4 +1,19 @@
-Sonar-Branch-Comparison-Jenkins
-===============================
+# Sonar Branch Comparison - Jenkins part
+## Branch comparison flowchart
+![Branch comparison flowchart](static/flowchart.png)
+## Classes/Modules
+### Gerrit
 
-Jenkins scripts for Sonar Branch Comparison testing
+Rest api library for gerrit server
+
+### Sonar
+
+Library for getting/parsing sonar branch comparison results
+
+### Tools
+
+Functions for loading templates, environment variables, etc.
+
+### Email(deprecated)
+
+Sending emails using local SMTP server
